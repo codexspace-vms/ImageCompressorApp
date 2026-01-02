@@ -1,14 +1,14 @@
 package com.imgcomp.imagecompressor;
 
-import android.Manifest;
+import static android.view.View.GONE;
+
 import android.app.Dialog;
-import android.content.pm.PackageManager;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.SeekBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -20,7 +20,6 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatImageButton;
-import androidx.core.app.ActivityCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -37,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
     private int quality=0;
     private static final int GOT_ALL_PERMISSIONS=100;
     private AppCompatImageButton convertButton;
+    private ImageCompression imageCompression;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,10 +47,12 @@ public class MainActivity extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+        // fetching all the UI Views
         convertButton=findViewById(R.id.btnConvert);
         qualitySelected=findViewById(R.id.show_Quality);
         selectedImage=findViewById(R.id.imageSelected);
         seekBar=findViewById(R.id.seekBar);
+        // Handling SeekBar Inputs
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -73,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
             //No work for now
             }
         });
+        // Selecting Image Throught Intent
         selectedImage.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -96,31 +99,64 @@ public class MainActivity extends AppCompatActivity {
                 else if(quality<=0){
                     Toast.makeText(MainActivity.this, "Select Quality currently it is zero", Toast.LENGTH_SHORT).show();
                     return;
-                }else{
-                    ImageCompression imgComp=new ImageCompression(selectedImage,imageUri,MainActivity.this,quality);
-                    try {
-                        Dialog d=new Dialog(MainActivity.this);
-                        d.show();
-                        d.setCancelable(false);
-                        imgComp.convertImage();
-                        d.dismiss();
-                        Toast.makeText(MainActivity.this, "Image Saved at Storage/Compressed Images/", Toast.LENGTH_SHORT).show();
-                    }catch (Exception e){
-                        AlertDialog.Builder ad=new AlertDialog.Builder(MainActivity.this);
-                        ad.setTitle("Error");
-                        ad.setMessage("There was a Problem Saving the compressed image");
-                        ad.show();
-                    }
+                }
+                else if (quality>=90) {
+                    Dialog d= new Dialog(MainActivity.this);
+                    d.setContentView(R.layout.loading_dialog);
+                    ProgressBar p= d.findViewById(R.id.pgbar);
+                    p.setVisibility(GONE);
+                    TextView loading_tv=d.findViewById(R.id.loading_tv);
+                    loading_tv.setText("You have Selected Maximum Quality It will Increase the Image Size");
+                    d.setCancelable(true);
+                    Button compress=d.findViewById(R.id.compress);
+                    Button cancle=d.findViewById(R.id.cancle);
+                    d.show();
+                    compress.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            d.dismiss();
+                            compressorMethod();
+                        }
+                    });
+                    cancle.setOnClickListener(new View.OnClickListener() {
+                        @Override
+                        public void onClick(View v) {
+                            d.dismiss();
+                            return;
+                        }
+                    });
+                }
+                else{
+                    compressorMethod();
                 }
             }
         });
     }
-    protected void onStart() {
-        super.onStart();
-        if(ActivityCompat.checkSelfPermission(getApplicationContext(), Manifest.permission.READ_EXTERNAL_STORAGE)!= PackageManager.PERMISSION_GRANTED){
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},GOT_ALL_PERMISSIONS);
-            }
+    private void compressorMethod(){
+        if(imageCompression==null)
+            imageCompression=new ImageCompression(selectedImage,imageUri,MainActivity.this,quality);
+        else{
+            imageCompression.setImage(selectedImage);
+            imageCompression.setImageUri(imageUri);
+            imageCompression.setQuality(quality);
+        }
+        try {
+            Dialog d=new Dialog(MainActivity.this);
+            d.setContentView(R.layout.loading_dialog);
+            Button compress=(Button) d.findViewById(R.id.compress);
+            Button cancle=(Button)d.findViewById(R.id.cancle);
+            compress.setVisibility(GONE);
+            cancle.setVisibility(GONE);
+            d.show();
+            d.setCancelable(false);
+            imageCompression.convertImage();
+            d.dismiss();
+            Toast.makeText(MainActivity.this, "Image Saved at Pictures/CompressedImages/", Toast.LENGTH_SHORT).show();
+        }catch (Exception e){
+            AlertDialog.Builder ad=new AlertDialog.Builder(MainActivity.this);
+            ad.setTitle("Error");
+            ad.setMessage("There was a Problem Saving the compressed image");
+            ad.show();
         }
     }
 }
